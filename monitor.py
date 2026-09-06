@@ -9,28 +9,40 @@ with sync_playwright() as p:
     print("Відкриваємо сайт ДМС...")
     page.goto(URL, wait_until="networkidle", timeout=60000)
 
-    # Вибираємо область
+    # Область
     region = page.get_by_placeholder("Область")
     region.click()
     region.fill("Київ")
-
     page.wait_for_timeout(1000)
 
-    # Вибираємо запропонований Київ
     page.get_by_text("м. Київ, Київська область", exact=True).click()
-
     page.wait_for_timeout(1000)
 
-    # Відкриваємо поле підрозділу
+    # Підрозділ
     unit = page.get_by_placeholder("Територіальний підрозділ ДМС")
     unit.click()
     unit.fill("Герцена")
+    page.wait_for_timeout(1500)
 
-    page.wait_for_timeout(2000)
+    page.get_by_text(
+        "8036 СОД № 2 Шевченківського відділу ЦМУ ДМС м. Київ, вул. Герцена, 9",
+        exact=True
+    ).click()
 
-    print("\n--- ПІСЛЯ ВИБОРУ ГЕРЦЕНА ---")
+    page.wait_for_timeout(500)
+
+    print("\n--- ПЕРЕД НАТИСКАННЯМ ДАЛІ ---")
     print(page.locator("body").inner_text())
 
-    page.screenshot(path="herzena.png", full_page=True)
+    # Натискаємо "Далі"
+    page.get_by_text("Далі", exact=True).click()
+
+    page.wait_for_timeout(3000)
+
+    print("\n--- ПІСЛЯ НАТИСКАННЯ ДАЛІ ---")
+    print("URL:", page.url)
+    print(page.locator("body").inner_text())
+
+    page.screenshot(path="after_next.png", full_page=True)
 
     browser.close()
