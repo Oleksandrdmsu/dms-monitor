@@ -31,18 +31,27 @@ with sync_playwright() as p:
 
     page.wait_for_timeout(500)
 
-    print("\n--- ПЕРЕД НАТИСКАННЯМ ДАЛІ ---")
-    print(page.locator("body").inner_text())
-
-    # Натискаємо "Далі"
+    # Далі
     page.get_by_text("Далі", exact=True).click()
+    page.wait_for_timeout(1500)
 
+    # Вибір послуги
+    service = page.get_by_text(
+        "Паспорт громадянина України для виїзду за кордон, або у формі картки (ID)",
+        exact=True
+    )
+    service.click()
+
+    page.wait_for_timeout(500)
+
+    # Далі
+    page.get_by_text("Далі", exact=True).click()
     page.wait_for_timeout(3000)
 
-    print("\n--- ПІСЛЯ НАТИСКАННЯ ДАЛІ ---")
+    print("\n--- ПІСЛЯ ВИБОРУ ПОСЛУГИ ---")
     print("URL:", page.url)
     print(page.locator("body").inner_text())
 
-    page.screenshot(path="after_next.png", full_page=True)
+    page.screenshot(path="service_next.png", full_page=True)
 
     browser.close()
