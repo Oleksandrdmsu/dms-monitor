@@ -1,53 +1,41 @@
-import os
-import requests
 from playwright.sync_api import sync_playwright
 
 URL = "https://cherga.dmsu.gov.ua/"
 
-TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
-
 TARGET_DATES = {
-    "7 вересня 2026 р.",
-    "8 вересня 2026 р.",
-    "9 вересня 2026 р.",
-    "10 вересня 2026 р.",
-    "11 вересня 2026 р.",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
 }
 
-
-def send_telegram(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-
-    response = requests.post(
-        url,
-        data={
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": message,
-        },
-        timeout=20,
+with sync_playwright() as p:
+    browser = p.chromium.launch(
+        headless=True
     )
 
-    response.raise_for_status()
-
-
-with sync_playwright() as p:
-
-    browser = p.chromium.launch(headless=True)
     page = browser.new_page(
         viewport={"width": 1280, "height": 900},
         locale="uk-UA",
     )
 
     print("Відкриваємо сайт ДМС...")
-    page.goto(URL, wait_until="networkidle", timeout=60000)
 
-    # -----------------------------
-    # 1. Область
-    # -----------------------------
+    page.goto(
+        URL,
+        wait_until="networkidle",
+        timeout=60000
+    )
 
-    region = page.get_by_placeholder("Область")
-    region.fill("Київ")
+    # =========================================================
+    # 1. ОБЛАСТЬ
+    # =========================================================
+
+    print("Обираємо область...")
+
+    page.get_by_placeholder("Область").fill("Київ")
     page.wait_for_timeout(1000)
 
     page.get_by_text(
@@ -57,15 +45,16 @@ with sync_playwright() as p:
 
     page.wait_for_timeout(1000)
 
-    # -----------------------------
-    # 2. Підрозділ
-    # -----------------------------
+    # =========================================================
+    # 2. ПІДРОЗДІЛ ДМС
+    # =========================================================
 
-    unit = page.get_by_placeholder(
+    print("Обираємо підрозділ...")
+
+    page.get_by_placeholder(
         "Територіальний підрозділ ДМС"
-    )
+    ).fill("Герцена")
 
-    unit.fill("Герцена")
     page.wait_for_timeout(1500)
 
     page.get_by_text(
@@ -75,12 +64,24 @@ with sync_playwright() as p:
 
     page.wait_for_timeout(500)
 
-    # -----------------------------
-    # 3. Послуга
-    # -----------------------------
+    # =========================================================
+    # 3. ДАЛІ
+    # =========================================================
 
-    page.get_by_text("Далі", exact=True).click()
+    print("Переходимо до вибору послуги...")
+
+    page.get_by_text(
+        "Далі",
+        exact=True
+    ).click()
+
     page.wait_for_timeout(1500)
+
+    # =========================================================
+    # 4. ЗАКОРДОННИЙ ПАСПОРТ
+    # =========================================================
+
+    print("Обираємо послугу закордонного паспорта...")
 
     page.get_by_text(
         "Паспорт громадянина України для виїзду за кордон, або у формі картки (ID)",
@@ -89,117 +90,229 @@ with sync_playwright() as p:
 
     page.wait_for_timeout(500)
 
-    page.get_by_text("Далі", exact=True).click()
+    # =========================================================
+    # 5. ВІДКРИВАЄМО КАЛЕНДАР
+    # =========================================================
+
+    page.get_by_text(
+        "Далі",
+        exact=True
+    ).click()
+
     page.wait_for_timeout(2000)
 
-    print("Календар відкритий.")
+    print()
+    print("=" * 60)
+    print("КАЛЕНДАР ВІДКРИТО")
+    print("=" * 60)
 
-    # -----------------------------
-    # 4. Перевіряємо потрібні дати
-    # -----------------------------
+    # =========================================================
+    # 6. ЗБЕРІГАЄМО HTML І SCREENSHOT
+    # =========================================================
 
-    available_dates = []
+    with open(
+        "calendar.html",
+        "w",
+        encoding="utf-8"
+    ) as f:
+        f.write(
+            page.locator("body").inner_html()
+        )
 
-    date_elements = page.locator(
-        'abbr[aria-label]'
+    page.screenshot(
+        path="calendar.png",
+        full_page=True
     )
 
-    count = date_elements.count()
+    print("Збережено calendar.html")
+    print("Збережено calendar.png")
 
-    print(f"Знайдено дат у календарі: {count}")
+    # =========================================================
+    # 7. ПОКАЗУЄМО ВСІ BUTTON
+    # =========================================================
 
-    for i in range(count):
+    print()
+    print("=" * 60)
+    print("УСІ BUTTON НА СТОРІНЦІ")
+    print("=" * 60)
 
-        element = date_elements.nth(i)
+    buttons = page.locator("button")
 
-        aria_label = element.get_attribute("aria-label")
+    print(
+        "Кількість button:",
+        buttons.count()
+    )
 
-        if not aria_label:
-            continue
+    for i in range(buttons.count()):
 
-        if aria_label not in TARGET_DATES:
-            continue
+        b = buttons.nth(i)
 
-        # Перевіряємо, чи дата disabled
-        parent = element.locator("..")
+        try:
+            text = b.inner_text().strip()
+        except Exception:
+            text = ""
 
-        disabled = False
+        try:
+            aria = b.get_attribute("aria-label")
+        except Exception:
+            aria = None
 
-        if element.get_attribute("disabled") is not None:
-            disabled = True
+        try:
+            disabled = b.is_disabled()
+        except Exception:
+            disabled = "N/A"
 
-        if parent.get_attribute("disabled") is not None:
-            disabled = True
+        try:
+            cls = b.get_attribute("class")
+        except Exception:
+            cls = None
 
-        if parent.get_attribute("aria-disabled") == "true":
-            disabled = True
+        if text or aria:
 
-        class_name = (
-            parent.get_attribute("class") or ""
-        ).lower()
+            print()
+            print(f"BUTTON #{i}")
+            print(f"  text     = {text!r}")
+            print(f"  aria     = {aria!r}")
+            print(f"  disabled = {disabled}")
+            print(f"  class    = {cls!r}")
 
-        if "disabled" in class_name:
-            disabled = True
+    # =========================================================
+    # 8. ШУКАЄМО 7–12
+    # =========================================================
 
+    print()
+    print("=" * 60)
+    print("ДОСЛІДЖЕННЯ ДАТ 7–12")
+    print("=" * 60)
+
+    for number in TARGET_DATES:
+
+        locator = page.get_by_text(
+            number,
+            exact=True
+        )
+
+        count = locator.count()
+
+        print()
         print(
-            f"{aria_label}: "
-            + ("НЕДОСТУПНА" if disabled else "ДОСТУПНА")
+            f"ДАТА {number}: знайдено {count} елемент(ів)"
         )
 
-        if not disabled:
-            available_dates.append(aria_label)
+        for i in range(count):
 
-    # -----------------------------
-    # 5. Якщо доступних дат немає
-    # -----------------------------
+            el = locator.nth(i)
 
-    if not available_dates:
+            try:
+                tag = el.evaluate(
+                    "(e) => e.tagName"
+                )
+            except Exception:
+                tag = "?"
 
-        print(
-            "На 7–11 вересня доступних дат зараз немає."
-        )
+            try:
+                text = el.inner_text()
+            except Exception:
+                text = "?"
 
-        browser.close()
+            try:
+                cls = el.get_attribute("class")
+            except Exception:
+                cls = None
 
-    else:
+            try:
+                aria = el.get_attribute(
+                    "aria-label"
+                )
+            except Exception:
+                aria = None
 
-        print(
-            "Знайдено доступні дати:",
-            available_dates
-        )
+            try:
+                parent_tag = el.evaluate(
+                    "(e) => e.parentElement ? e.parentElement.tagName : null"
+                )
+            except Exception:
+                parent_tag = None
 
-        # -----------------------------
-        # 6. Відкриваємо першу доступну дату
-        # -----------------------------
+            try:
+                parent_class = el.evaluate(
+                    "(e) => e.parentElement ? e.parentElement.className : null"
+                )
+            except Exception:
+                parent_class = None
 
-        target = page.locator(
-            f'abbr[aria-label="{available_dates[0]}"]'
-        )
+            try:
+                parent_disabled = el.evaluate(
+                    """
+                    (e) => e.parentElement
+                        ? e.parentElement.disabled
+                        : null
+                    """
+                )
+            except Exception:
+                parent_disabled = None
 
-        target.click()
+            print(f"  Елемент #{i}")
+            print(f"    tag             = {tag}")
+            print(f"    text            = {text!r}")
+            print(f"    class           = {cls!r}")
+            print(f"    aria-label      = {aria!r}")
+            print(f"    parent tag      = {parent_tag!r}")
+            print(f"    parent class    = {parent_class!r}")
+            print(f"    parent disabled = {parent_disabled!r}")
 
-        page.wait_for_timeout(2000)
+    # =========================================================
+    # 9. ДОДАТКОВО — ЕЛЕМЕНТИ З ARIA-LABEL
+    # =========================================================
 
-        print("\n--- ПІСЛЯ ВИБОРУ ДАТИ ---")
-        print(page.locator("body").inner_text())
+    print()
+    print("=" * 60)
+    print("ЕЛЕМЕНТИ З ARIA-LABEL")
+    print("=" * 60)
 
-        # -----------------------------
-        # 7. Telegram
-        # -----------------------------
+    aria_elements = page.locator(
+        "[aria-label]"
+    )
 
-        message = (
-            "🚨 ДМС — Є ВІЛЬНА ДАТА!\n\n"
-            "Підрозділ: вул. Герцена, 9\n"
-            "Послуга: закордонний паспорт\n\n"
-            "Доступна дата:\n"
-            + "\n".join(available_dates)
-            + "\n\n"
-            "Перевірити та записатися:\n"
-            + URL
-        )
+    print(
+        "Кількість:",
+        aria_elements.count()
+    )
 
-        send_telegram(message)
+    for i in range(
+        min(aria_elements.count(), 100)
+    ):
 
-        print("Повідомлення надіслано в Telegram.")
+        el = aria_elements.nth(i)
 
-        browser.close()
+        try:
+            tag = el.evaluate(
+                "(e) => e.tagName"
+            )
+            aria = el.get_attribute(
+                "aria-label"
+            )
+            text = el.inner_text().strip()
+            cls = el.get_attribute("class")
+
+            print(
+                f"{i}: "
+                f"tag={tag}, "
+                f"aria={aria!r}, "
+                f"text={text!r}, "
+                f"class={cls!r}"
+            )
+
+        except Exception:
+            pass
+
+    # =========================================================
+    # 10. КІНЕЦЬ
+    # =========================================================
+
+    print()
+    print("=" * 60)
+    print("ДІАГНОСТИКА ЗАВЕРШЕНА")
+    print("=" * 60)
+
+    browser.close()
