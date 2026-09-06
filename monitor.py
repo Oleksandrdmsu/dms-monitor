@@ -48,10 +48,15 @@ with sync_playwright() as p:
     page.get_by_text("Далі", exact=True).click()
     page.wait_for_timeout(3000)
 
-    print("\n--- ПІСЛЯ ВИБОРУ ПОСЛУГИ ---")
-    print("URL:", page.url)
-    print(page.locator("body").inner_text())
+print("\n--- КАЛЕНДАР ---")
 
-    page.screenshot(path="service_next.png", full_page=True)
+# Пробуємо натиснути 7 вересня
+page.get_by_text("7", exact=True).click()
 
-    browser.close()
+page.wait_for_timeout(2000)
+
+print("\n--- ПІСЛЯ НАТИСКАННЯ 7 ---")
+print("URL:", page.url)
+print(page.locator("body").inner_text())
+
+page.screenshot(path="date_7.png", full_page=True)
