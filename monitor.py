@@ -1,27 +1,44 @@
 import os
-import requests
+from playwright.sync_api import sync_playwright
 
-BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+URL = "https://cherga.dmsu.gov.ua/"
 
-message = (
-    "🔔 DMS Monitor запущено!\n\n"
-    "Перевіряємо електронну чергу ДМС:\n"
-    "📍 Київ, вул. Герцена, 9\n"
-    "📅 7–11 вересня 2026\n"
-    "📄 Закордонний паспорт"
-)
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
 
-url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    print("Відкриваємо сайт ДМС...")
+    page.goto(URL, wait_until="networkidle", timeout=60000)
 
-response = requests.post(
-    url,
-    data={
-        "chat_id": CHAT_ID,
-        "text": message,
-    },
-    timeout=30,
-)
+    print("TITLE:", page.title())
+    print("URL:", page.url)
 
-response.raise_for_status()
-print("Telegram message sent successfully")
+    print("\n--- INPUTS ---")
+    for i, el in enumerate(page.locator("input").all()):
+        try:
+            print(i, {
+                "placeholder": el.get_attribute("placeholder"),
+                "name": el.get_attribute("name"),
+                "type": el.get_attribute("type"),
+                "value": el.input_value()
+            })
+        except:
+            pass
+
+    print("\n--- BUTTONS ---")
+    for i, el in enumerate(page.locator("button").all()):
+        try:
+            print(i, el.inner_text())
+        except:
+            pass
+
+    print("\n--- SELECTS ---")
+    for i, el in enumerate(page.locator("select").all()):
+        try:
+            print(i, el.inner_text())
+        except:
+            pass
+
+    page.screenshot(path="dms_page.png", full_page=True)
+
+    browser.close()
